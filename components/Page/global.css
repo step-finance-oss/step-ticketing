@@ -1,0 +1,36 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+@layer components {
+  html {
+    @apply bg-page text-page-contrast;
+  }
+  html,
+  body {
+    @apply min-h-screen;
+  }
+
+  option,
+  optgroup {
+    -webkit-appearance: none;
+    @apply bg-white text-black;
+  }
+
+  ::-webkit-calendar-picker-indicator {
+    filter: invert(1);
+  }
+}
+
+button.wallet-adapter-button-trigger {
+  @apply font-headers rounded-md cursor-pointer bg-primary text-primary-contrast disabled:bg-primary/40 disabled:text-primary-contrast/40 px-3 py-2 text-center font-semibold leading-6 hover:bg-primary/80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white;
+  height: 40px;
+}
+
+button.wallet-adapter-button-trigger.wallet-adapter-button-trigger.wallet-adapter-button-trigger {
+  @apply hover:bg-primary/80;
+}
+
+ul.wallet-adapter-dropdown-list {
+  left: 0;
+  right: auto;
+}

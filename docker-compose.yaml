@@ -1,0 +1,27 @@
+networks:
+  ticketing:
+    driver: bridge
+
+services:
+  postgres:
+    image: postgres:17
+    environment:
+      - POSTGRES_DB=ticketing
+      - POSTGRES_USER=ticketing
+      - POSTGRES_PASSWORD=ticketing-local
+    container_name: ticketing_postgres_local
+    ports:
+      - "127.0.0.1:5432:5432"
+    networks:
+      - ticketing
+    hostname: postgres
+
+  mailhog:
+    image: mailhog/mailhog
+    logging:
+      driver: "none"
+    networks:
+      - ticketing
+    ports:
+      - "127.0.0.1:1025:1025"
+      - "127.0.0.1:8025:8025"

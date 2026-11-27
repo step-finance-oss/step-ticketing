@@ -1,0 +1,12 @@
+node_modules/
+.next/
+.DS_STORE
+.env
+.idea/
+*.sw*
+
+lib/page-service
+
+certificates
+
+tsconfig.tsbuildinfo

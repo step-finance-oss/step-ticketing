@@ -1,0 +1,2 @@
+lint-staged --no-stash -v
+pnpm run type-check  # this has to run for entire project, otherwise there will be import errors

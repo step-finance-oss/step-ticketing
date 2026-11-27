@@ -1,0 +1,209 @@
+datasource db {
+  provider  = "postgresql"
+  url       = env("POSTGRES_PRISMA_URL") // uses connection pooling
+  directUrl = env("POSTGRES_URL_NON_POOLING") // uses a direct connection
+}
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["omitApi"]
+}
+
+model User {
+  id            String          @id @default(cuid())
+  name          String?
+  email         String          @unique
+  emailVerified DateTime?
+  image         String?
+  accounts      Account[]
+  sessions      Session[]
+  // Optional for WebAuthn support
+  Authenticator Authenticator[]
+  password      String?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  tickets       Ticket[]
+  isInternal    Boolean         @default(false)
+  role          Role            @default(GUEST)
+}
+
+enum Role {
+  ADMIN // can do anything in admin app
+  STAFF // can access guest check-in functions in admin app
+  GUEST // doesn't have admin access
+}
+
+model Account {
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([provider, providerAccountId])
+}
+
+model Session {
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model VerificationToken {
+  identifier String
+  token      String
+  expires    DateTime
+
+  @@id([identifier, token])
+}
+
+// Optional for WebAuthn support
+model Authenticator {
+  credentialID         String  @unique
+  userId               String
+  providerAccountId    String
+  credentialPublicKey  String
+  counter              Int
+  credentialDeviceType String
+  credentialBackedUp   Boolean
+  transports           String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, credentialID])
+}
+
+model Event {
+  id                          String        @id @default(cuid())
+  title                       String
+  description                 String?
+  priceTierDescription        String?
+  date                        DateTime
+  tickets                     Ticket[]
+  priceTiers                  PriceTier[]
+  published                   Boolean       @default(false)
+  ticketsAvailabilityDuration Int           @default(0)
+  merchOptions                MerchOption[]
+  blinkURL                    String?
+  disclaimer                  String?
+}
+
+model PriceTier {
+  id                  String        @id @default(cuid())
+  title               String
+  event               Event         @relation(fields: [eventId], references: [id])
+  eventId             String
+  price               Decimal       @db.Decimal(6, 2)
+  description         String
+  tickets             Ticket[]
+  limit               Int           @default(0)
+  options             Json?         @db.JsonB
+  isMostPopular       Boolean       @default(false)
+  registrationFormURL String?
+  priceOptions        PriceOption[]
+  PromoCode           PromoCode[]
+}
+
+model Ticket {
+  id                   String       @id @default(cuid())
+  user                 User         @relation(fields: [userId], references: [id])
+  userId               String
+  name                 String?
+  priceTier            PriceTier    @relation(fields: [priceTierId], references: [id])
+  priceTierId          String
+  priceOption          PriceOption? @relation(fields: [priceOptionId], references: [id])
+  priceOptionId        String?
+  isPaid               Boolean
+  qrCode               String
+  event                Event        @relation(fields: [eventId], references: [id])
+  eventId              String
+  shirtSize            String?
+  checkInDateTime      DateTime?
+  purchaseDateTime     DateTime?    @default(now())
+  notes                String?
+  txId                 String?      @unique
+  kadoPaymentId        String?
+  promoCodeId          String?
+  promoCode            PromoCode?   @relation(fields: [promoCodeId], references: [id])
+  purchasePrice        Decimal?     @db.Decimal(6, 2)
+  selectedMerchOptions Json?        @db.JsonB
+  source               String?
+  // as multiple existing tickets do not have payment info, store this info as plain string
+  purchaseId           String?      @unique
+  purchase             Purchase?    @relation(fields: [purchaseId], references: [id])
+  nonce                String?
+  emailSent            Boolean      @default(false)
+  emailSentDateTime    DateTime?
+  payerWalletAddress   String?
+}
+
+model Purchase {
+  id          String         @id @default(cuid())
+  tx          String
+  kadoOrderId String?        @unique
+  nonce       String         @unique
+  amount      BigInt         @default(0)
+  status      PurchaseStatus @default(PENDING)
+  // temporary purchase data
+  data        Json?
+  ticket      Ticket?
+  updatedAt   DateTime?      @default(now())
+  txId        String?
+}
+
+enum PurchaseStatus {
+  PENDING
+  IDLE
+  COMPLETED
+  CANCELLED
+}
+
+model PriceOption {
+  id          String    @id @default(cuid())
+  priceTier   PriceTier @relation(fields: [priceTierId], references: [id], onDelete: Cascade)
+  priceTierId String
+  validUntil  DateTime
+  price       Decimal   @db.Decimal(6, 2)
+  label       String?
+  tickets     Ticket[]
+}
+
+model PromoCode {
+  id              String     @id @default(cuid())
+  discountPercent Decimal?   @db.Decimal(6, 2)
+  discountUSD     Decimal?   @db.Decimal(6, 2)
+  priceTier       PriceTier? @relation(fields: [priceTierId], references: [id], onDelete: Cascade)
+  priceTierId     String?
+  startDate       DateTime
+  endDate         DateTime
+  code            String
+  usageLimit      Int?
+  tickets         Ticket[]
+}
+
+model MerchOption {
+  id      String @id @default(cuid())
+  event   Event  @relation(fields: [eventId], references: [id])
+  eventId String
+  label   String // describes what kind of merch this is, like t-shirt, baseball cap, wrist band ect.
+
+  // options is an object of the following structure: {parameter: []}
+  // where parameter is the label of merch parameter, like size, color ect
+  // and array represents list of it's options
+  options Json @db.JsonB
+}
